@@ -1,4 +1,17 @@
-# React + Vite
+# MeetWithMe
+
+## Development and deployment
+
+Run `npm install`, then `npm run dev` to start the React app locally.
+
+This app uses Firebase Hosting with project `meetwithme-20260930` (display name: MeetWithMe).
+The live site is https://meetwithme-20260930.web.app.
+
+To deploy, install the Firebase CLI with `npm install -g firebase-tools`, sign in
+with `firebase login`, and run `npm run deploy`. Firebase builds the app before
+uploading the `dist` directory. Routes fall back to `index.html` for client-side routing.
+
+## Vite template
 
 This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
 
