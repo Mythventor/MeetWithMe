@@ -18,6 +18,15 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
+      - name: Check Firebase deployment credential
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_MEETWITHME_20260930 }}
+        run: |
+          if [ -z "$FIREBASE_SERVICE_ACCOUNT" ]; then
+            echo "::error::Missing repository Actions secret FIREBASE_SERVICE_ACCOUNT_MEETWITHME_20260930. Add the Firebase deployment service account JSON key at Settings > Secrets and variables > Actions, then rerun this workflow."
+            exit 1
+          fi
+
       - name: Check out repository
         uses: actions/checkout@v4
 

@@ -40,10 +40,8 @@ Firebase Hosting site. You can also run it manually from GitHub's Actions tab on
 and build checks, then deploys to `meetwithme-20260930`. Production deploys are
 serialized to avoid simultaneous releases.
 
-Before the first run, configure the repository Actions secret
-`FIREBASE_SERVICE_ACCOUNT_MEETWITHME_20260930` with a dedicated service account
-JSON key. The account needs Firebase Hosting Admin and Service Usage Consumer
-roles on `meetwithme-20260930`. Never commit the key to this repository.
-
-Credential setup is still pending. Once that secret is configured, commit and
-push the workflow to `main` to activate automatic deployments.
+The repository Actions secret `FIREBASE_SERVICE_ACCOUNT_MEETWITHME_20260930`
+is configured with a dedicated service account JSON key. The account
+`github-hosting-deploy@meetwithme-20260930.iam.gserviceaccount.com` has Firebase
+Hosting Admin and Service Usage Consumer roles on `meetwithme-20260930`.
+Keep replacement keys in GitHub Actions secrets; never commit them here.
