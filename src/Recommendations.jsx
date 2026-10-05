@@ -36,14 +36,12 @@ const messages = {
 };
 export default function Recommendations({ event }) {
   const [duration, setDuration] = useState(60);
-  const [expanded, setExpanded] = useState(false);
   const result = useMemo(
     () => recommendTimes(event, duration),
     [event, duration],
   );
   const bestCount = result.options[0]?.count;
-  const ties = result.options.filter((o) => o.count === bestCount).length;
-  const visible = expanded ? result.options : result.options.slice(0, 5);
+  const visible = result.options.slice(0, 3);
   return (
     <section
       aria-labelledby="recommendations-heading"
@@ -60,7 +58,6 @@ export default function Recommendations({ event }) {
             value={duration}
             onChange={(e) => {
               setDuration(Number(e.target.value));
-              setExpanded(false);
             }}
           >
             {[15, 30, 45, 60, 90, 120, 180, 240].map((n) => (
@@ -72,13 +69,13 @@ export default function Recommendations({ event }) {
         </label>
       </div>
       <p className="mt-2 text-xs text-[#555]">
-        Ranked by people available for the entire meeting. Ties use date, then
+        Up to three top choices, ranked by people available for the entire meeting. Ties use date, then
         start time. Unmarked time is not counted. All times are in {event.zone}.
       </p>
       <p role="status" aria-live="polite" className="my-3">
         {result.reason
           ? messages[result.reason]
-          : `${bestCount} of ${result.totalPeople} can attend the strongest option${ties > 1 ? ` (${ties} equally strong start times)` : ""}.${bestCount < result.totalPeople ? " No time fits everyone for this duration." : ""}`}
+          : `${bestCount} of ${result.totalPeople} can attend the strongest option.${bestCount < result.totalPeople ? " No time fits everyone for this duration." : ""}`}
       </p>
       {visible.length > 0 && (
         <ol className="space-y-2">
@@ -111,16 +108,6 @@ export default function Recommendations({ event }) {
             </li>
           ))}
         </ol>
-      )}
-      {result.options.length > 5 && (
-        <button
-          className="native-button mt-3"
-          onClick={() => setExpanded(!expanded)}
-        >
-          {expanded
-            ? "Show top 5"
-            : `Show all ${result.options.length} options`}
-        </button>
       )}
     </section>
   );

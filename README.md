@@ -50,8 +50,8 @@ Keep replacement keys in GitHub Actions secrets; never commit them here.
 
 Recommendations update as availability changes. Choose a duration (15–240 minutes)
 to rank every same-day start time by the number of participants available for the
-entire meeting. Equal scores use date and then start time; overlapping options
-remain available through “Show all”. Empty responses count in the total but never
+entire meeting. Only the top three choices are shown. Equal scores use date and
+then start time. Empty responses count in the total but never
 imply availability. Windows with zero attendees are omitted.
 
 Times use the event's wall-clock time zone. The current availability model does
