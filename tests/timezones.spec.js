@@ -1,0 +1,31 @@
+import { test, expect } from '@playwright/test';
+test('local view preserves availability and works on mobile', async ({ page }) => {
+  const errors = [];
+  page.on('pageerror', e => errors.push(e.message));
+  await page.goto('http://127.0.0.1:5173');
+  await page.evaluate(() => {
+    localStorage.setItem('meetwithme-events-v1', JSON.stringify([{id:'tz-test', name:'Across the Atlantic', mode:'dates', dates:['2026-10-05','2026-10-28'], start:36, end:68, zone:'America/New_York', people:[]}]));
+  });
+  await page.goto('http://127.0.0.1:5173/#tz-test');
+  await page.reload();
+  await page.getByLabel('Show availability in').selectOption('Asia/Tokyo');
+  await page.getByLabel('Your name').fill('Sam');
+  await page.getByRole('button', {name:'Add / Sign In'}).click();
+  const cell = page.locator('[data-grid="0"][data-slot="2026-10-05:36"]');
+  await cell.focus();
+  await page.keyboard.press('Space');
+  await expect(cell).toHaveAttribute('aria-pressed','true');
+  await expect(cell).toContainText('10:00 PM');
+  await page.getByLabel('Show availability in').selectOption('Europe/London');
+  await expect(cell).toHaveAttribute('aria-pressed','true');
+  await expect(cell).toContainText('2:00 PM');
+  await page.reload();
+  await expect(page.getByLabel('Show availability in')).toHaveValue('Europe/London');
+  await page.getByRole('button', {name:'Sam', exact:true}).click();
+  await expect(cell).toHaveAttribute('aria-pressed','true');
+  await page.screenshot({path:'/tmp/meetwithme-desktop.png',fullPage:true});
+  await page.setViewportSize({width:390,height:844});
+  await page.screenshot({path:'/tmp/meetwithme-mobile.png',fullPage:true});
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBeTruthy();
+  expect(errors).toEqual([]);
+});

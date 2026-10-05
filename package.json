@@ -9,13 +9,15 @@
     "deploy": "firebase deploy --only hosting",
     "lint": "oxlint",
     "preview": "vite preview",
-    "test": "node --test src/lib/*.test.js"
+    "test": "node --test src/lib/*.test.js src/timezones.test.js"
   },
   "dependencies": {
+    "@js-temporal/polyfill": "^0.5.1",
     "react": "^19.2.8",
     "react-dom": "^19.2.8"
   },
   "devDependencies": {
+    "@playwright/test": "^1.63.0",
     "@tailwindcss/vite": "^4.3.3",
     "@types/react": "^19.2.18",
     "@types/react-dom": "^19.2.7",

@@ -62,3 +62,17 @@
     opacity: 1;
   }
 }
+
+.zone-select { display: flex; flex-direction: column; gap: 7px; font-size: 12px; font-weight: 600; min-width: 0; }
+.zone-select select { width: 100%; max-width: 300px; padding: 9px 12px; border: 1px solid #a8bfb4; border-radius: 6px; font-size: 13px; font-weight: normal; }
+.zone-link { color: #246347; text-decoration: underline; text-underline-offset: 3px; font-size: 12px; padding: 10px 0; }
+.zone-warning { color: #85400d; }
+.week-reference { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; font-size: 12px; margin-bottom: 18px; }
+.week-reference input { padding: 5px; }
+.week-reference span { color: #52655b; }
+.creation-zone { margin-top: 22px; text-align: left; background: #f5faf8; padding: 16px; border-radius: 8px; max-width: 300px; border: 1px solid #c9dfd7; }
+.creation-zone p { font-size: 12px; line-height: 1.5; margin-top: 10px; color: #52655b; }
+.local-slot { display: flex; justify-content: center; align-items: center; gap: 4px; font-size: 10px; color: #183725; white-space: nowrap; }
+.local-slot small { font-size: 9px; }
+
+.availability-zone { margin: 20px auto; width: 100%; }
