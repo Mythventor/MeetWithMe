@@ -8,7 +8,8 @@
     "build": "vite build",
     "deploy": "firebase deploy --only hosting",
     "lint": "oxlint",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test": "node --test src/lib/*.test.js"
   },
   "dependencies": {
     "react": "^19.2.8",

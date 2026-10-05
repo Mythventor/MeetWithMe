@@ -45,3 +45,18 @@ is configured with a dedicated service account JSON key. The account
 `github-hosting-deploy@meetwithme-20260930.iam.gserviceaccount.com` has Firebase
 Hosting Admin and Service Usage Consumer roles on `meetwithme-20260930`.
 Keep replacement keys in GitHub Actions secrets; never commit them here.
+
+## Best meeting times
+
+Recommendations update as availability changes. Choose a duration (15–240 minutes)
+to rank every same-day start time by the number of participants available for the
+entire meeting. Equal scores use date and then start time; overlapping options
+remain available through “Show all”. Empty responses count in the total but never
+imply availability. Windows with zero attendees are omitted.
+
+Times use the event's wall-clock time zone. The current availability model does
+not distinguish repeated hours during daylight-saving transitions, and these
+recommendations are not absolute calendar timestamps. No window crosses midnight.
+
+Run `npm test` for boundary, malformed-data, and randomized oracle checks. The
+GitHub deployment workflow also runs this suite before deployment.

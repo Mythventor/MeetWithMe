@@ -1,3 +1,4 @@
+import Recommendations from "./Recommendations";
 import { useEffect, useRef, useState } from "react";
 
 const days = [
@@ -535,6 +536,7 @@ function Availability({ event, update }) {
           </section>
         ))}
       </div>
+      <Recommendations event={event} />
       <div className="mt-5 text-sm">
         {event.people.length > 0 && (
           <p className="mb-2">Participants — select a name to edit:</p>
