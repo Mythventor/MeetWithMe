@@ -333,7 +333,6 @@ function Availability({ event, update }) {
   const [viewZone, setViewZone] = useState(() => {
     try { const saved = localStorage.getItem("meetwithme-view-zone"); return zones.includes(saved) ? saved : localZone; } catch { return localZone; }
   });
-  const [compareZone, setCompareZone] = useState(event.zone === "Europe/London" ? "Asia/Tokyo" : "Europe/London");
   const [week, setWeek] = useState(() => keyFor(new Date()));
   const changeZone = (zone) => {
     setViewZone(zone);
@@ -346,8 +345,6 @@ function Availability({ event, update }) {
       return [`${d}:${slot}`, { instant, local: localTime(instant, viewZone) }];
     })
   )), [event, viewZone, week]);
-  const inspected = hover && times[hover]?.instant ? hover : Object.keys(times).find(key => times[key].instant);
-  const preview = times[inspected]?.instant;
   const hasSkipped = Object.values(times).some(t => !t.instant);
   const drag = useRef(null);
   const slots = Array.from(
@@ -384,22 +381,12 @@ function Availability({ event, update }) {
   return (
     <main className="mx-auto max-w-[1050px] px-4 pb-12 pt-6 text-center">
       <h1 className="text-2xl">{event.name}</h1>
-      <section className="zone-panel" aria-label="Time zone planner">
-        <div className="zone-heading"><div><span className="zone-eyebrow">ACROSS TIME ZONES</span><h2>Same moment. Your local time.</h2></div><span className="zone-badge">{viewZone === localZone ? "Your device time zone" : "Custom time zone"}</span></div>
-        <div className="zone-controls">
-          <ZoneSelect label="Show availability in" value={viewZone} onChange={changeZone} />
-          <button type="button" className="zone-link" onClick={() => changeZone(localZone)}>Use my time zone</button>
-          <ZoneSelect label="Compare with" value={compareZone} onChange={setCompareZone} />
-        </div>
-        {event.mode === "days" && <label className="week-reference">Reference week <input type="date" required value={week} onChange={e => { if (e.target.value) setWeek(e.target.value); }} /><span>Weekday conversions use this week. Check again when daylight saving changes.</span></label>}
-        <div className="zone-comparison" aria-live="polite">
-          {[{zone:viewZone, label:"Your view"}, {zone:compareZone, label:"Compare"}, {zone:event.zone, label:"Event time"}].map(({zone,label}) => {
-            const t = localTime(preview, zone);
-            return <div className="zone-city" key={label}><span>{label} · {zoneName(zone)}</span><strong>{t?.time || "No valid times"}</strong><span>{t?.date} · {t?.offset}</span>{t?.night && <em>Outside typical daytime hours</em>}</div>;
-          })}
-        </div>
-        <p className="zone-note">Hover, tap, or focus a time to compare locations. Grid cells show local dates and times; columns stay grouped by event date. Your selections stay put when you switch zones.</p>
-        {hasSkipped && <p className="zone-warning" role="status">Some event times are skipped or repeated during a daylight-saving change. Those slots are disabled to avoid ambiguity; choose another time.</p>}
+      <section className="creation-zone availability-zone" aria-label="Time zone">
+        <ZoneSelect label="Show availability in" value={viewZone} onChange={changeZone} />
+        <p>View times in your zone. Your selections stay the same.</p>
+        <button type="button" className="zone-link" onClick={() => changeZone(localZone)}>Use my time zone</button>
+        {event.mode === "days" && <label className="week-reference">Reference week <input type="date" required value={week} onChange={e => { if (e.target.value) setWeek(e.target.value); }} /><span>Conversions use this week’s daylight-saving rules.</span></label>}
+        {hasSkipped && <p className="zone-warning" role="status">Times skipped or repeated by daylight saving are disabled.</p>}
       </section>
       <p className="mt-2 text-xs text-[#555]">
         Responses are saved on this browser only.

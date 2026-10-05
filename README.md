@@ -63,9 +63,8 @@ GitHub deployment workflow also runs this suite before deployment.
 ## Time-zone planner
 
 Event times are anchored to the organizer's IANA time zone. Participants can switch
-between local zones without moving saved availability and compare a highlighted
-slot across their zone, a second location, and the event zone. Local dates, UTC
-offsets, and nighttime hints are shown for the selected instant. The display zone
+between local zones without moving saved availability using a compact selector.
+Grid cells show local times and date changes. The display zone
 is remembered on this device. Weekday polls use an explicit reference week;
 conversion can change in a different week because of daylight saving.
 
