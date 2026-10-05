@@ -60,3 +60,20 @@ recommendations are not absolute calendar timestamps. No window crosses midnight
 
 Run `npm test` for boundary, malformed-data, and randomized oracle checks. The
 GitHub deployment workflow also runs this suite before deployment.
+## Time-zone planner
+
+Event times are anchored to the organizer's IANA time zone. Participants can switch
+between local zones without moving saved availability and compare a highlighted
+slot across their zone, a second location, and the event zone. Local dates, UTC
+offsets, and nighttime hints are shown for the selected instant. The display zone
+is remembered on this device. Weekday polls use an explicit reference week;
+conversion can change in a different week because of daylight saving.
+
+Existing event and response keys remain compatible. Event wall times that are
+missing or repeated during daylight-saving transitions are disabled explicitly,
+rather than silently mapped to the wrong instant. This version does not offer both
+occurrences of a repeated hour. Responses still use browser-local storage.
+
+Time-zone checks: `node --test src/timezones.test.js`.
+Browser regression (with the dev server running): `npx playwright test`.
+Install the test browser once with `npx playwright install chromium`.

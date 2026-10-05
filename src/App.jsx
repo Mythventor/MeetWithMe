@@ -1,5 +1,7 @@
 import Recommendations from "./Recommendations";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { localZone, zoneName, slotInstant, localTime } from "./timezones";
+
 
 const days = [
   "Sunday",
@@ -35,6 +37,14 @@ function readEvents() {
   } catch {
     return [];
   }
+}
+
+function ZoneSelect({ label, value, onChange }) {
+  return <label className="zone-select"><span>{label}</span>
+    <select value={value} onChange={e => onChange(e.target.value)}>
+      {[...new Set([value, ...zones])].map(z => <option key={z} value={z}>{zoneName(z)}</option>)}
+    </select>
+  </label>;
 }
 
 function Calendar({ mode, selected, setSelected }) {
@@ -295,20 +305,10 @@ function CreateEvent({ onCreate }) {
                 </select>
               </label>
             </div>
-            <div>
-              <label>
-                Time Zone:{" "}
-                <select
-                  aria-label="Time Zone"
-                  className="max-w-[230px]"
-                  value={zone}
-                  onChange={(e) => setZone(e.target.value)}
-                >
-                  {zones.map((z) => (
-                    <option key={z}>{z}</option>
-                  ))}
-                </select>
-              </label>
+            <div className="creation-zone">
+              <ZoneSelect label="Event time zone" value={zone} onChange={setZone} />
+              <p>Start with your location. Everyone can view these times in their own zone.</p>
+              <button type="button" className="zone-link" onClick={() => setZone(localZone)}>Use my time zone</button>
             </div>
           </div>
           <div className="mt-12 sm:mt-auto sm:pt-8">
@@ -330,6 +330,25 @@ function Availability({ event, update }) {
   const [person, setPerson] = useState("");
   const [active, setActive] = useState(null);
   const [hover, setHover] = useState(null);
+  const [viewZone, setViewZone] = useState(() => {
+    try { const saved = localStorage.getItem("meetwithme-view-zone"); return zones.includes(saved) ? saved : localZone; } catch { return localZone; }
+  });
+  const [compareZone, setCompareZone] = useState(event.zone === "Europe/London" ? "Asia/Tokyo" : "Europe/London");
+  const [week, setWeek] = useState(() => keyFor(new Date()));
+  const changeZone = (zone) => {
+    setViewZone(zone);
+    try { localStorage.setItem("meetwithme-view-zone", zone); } catch { /* Viewing still works without storage. */ }
+  };
+  const times = useMemo(() => Object.fromEntries(event.dates.flatMap(d =>
+    Array.from({ length: event.end - event.start }, (_, i) => {
+      const slot = event.start + i;
+      const instant = slotInstant(event, d, slot, week);
+      return [`${d}:${slot}`, { instant, local: localTime(instant, viewZone) }];
+    })
+  )), [event, viewZone, week]);
+  const inspected = hover && times[hover]?.instant ? hover : Object.keys(times).find(key => times[key].instant);
+  const preview = times[inspected]?.instant;
+  const hasSkipped = Object.values(times).some(t => !t.instant);
   const drag = useRef(null);
   const slots = Array.from(
     { length: event.end - event.start },
@@ -351,6 +370,7 @@ function Availability({ event, update }) {
     for (let x = Math.min(c, col); x <= Math.max(c, col); x++)
       for (let y = Math.min(r, row); y <= Math.max(r, row); y++) {
         const key = `${event.dates[x]}:${y}`;
+        if (!times[key]?.instant) continue;
         if (add) next.add(key);
         else next.delete(key);
       }
@@ -364,7 +384,23 @@ function Availability({ event, update }) {
   return (
     <main className="mx-auto max-w-[1050px] px-4 pb-12 pt-6 text-center">
       <h1 className="text-2xl">{event.name}</h1>
-      <p className="mt-2 text-xs">Time zone: {event.zone}</p>
+      <section className="zone-panel" aria-label="Time zone planner">
+        <div className="zone-heading"><div><span className="zone-eyebrow">ACROSS TIME ZONES</span><h2>Same moment. Your local time.</h2></div><span className="zone-badge">{viewZone === localZone ? "Your device time zone" : "Custom time zone"}</span></div>
+        <div className="zone-controls">
+          <ZoneSelect label="Show availability in" value={viewZone} onChange={changeZone} />
+          <button type="button" className="zone-link" onClick={() => changeZone(localZone)}>Use my time zone</button>
+          <ZoneSelect label="Compare with" value={compareZone} onChange={setCompareZone} />
+        </div>
+        {event.mode === "days" && <label className="week-reference">Reference week <input type="date" required value={week} onChange={e => { if (e.target.value) setWeek(e.target.value); }} /><span>Weekday conversions use this week. Check again when daylight saving changes.</span></label>}
+        <div className="zone-comparison" aria-live="polite">
+          {[{zone:viewZone, label:"Your view"}, {zone:compareZone, label:"Compare"}, {zone:event.zone, label:"Event time"}].map(({zone,label}) => {
+            const t = localTime(preview, zone);
+            return <div className="zone-city" key={label}><span>{label} · {zoneName(zone)}</span><strong>{t?.time || "No valid times"}</strong><span>{t?.date} · {t?.offset}</span>{t?.night && <em>Outside typical daytime hours</em>}</div>;
+          })}
+        </div>
+        <p className="zone-note">Hover, tap, or focus a time to compare locations. Grid cells show local dates and times; columns stay grouped by event date. Your selections stay put when you switch zones.</p>
+        {hasSkipped && <p className="zone-warning" role="status">Some event times are skipped or repeated during a daylight-saving change. Those slots are disabled to avoid ambiguity; choose another time.</p>}
+      </section>
       <p className="mt-2 text-xs text-[#555]">
         Responses are saved on this browser only.
       </p>
@@ -422,15 +458,15 @@ function Availability({ event, update }) {
               <div
                 className="grid min-w-max touch-none select-none text-[11px]"
                 style={{
-                  gridTemplateColumns: `62px repeat(${event.dates.length}, minmax(48px, 1fr))`,
+                  gridTemplateColumns: `62px repeat(${event.dates.length}, minmax(112px, 1fr))`,
                 }}
                 onPointerMove={(e) => {
                   const cell = document
                     .elementFromPoint(e.clientX, e.clientY)
                     ?.closest("[data-slot]");
                   if (!cell || cell.dataset.grid !== String(grid)) return;
-                  if (grid) setHover(cell.dataset.slot);
-                  else
+                  setHover(cell.dataset.slot);
+                  if (!grid)
                     paint(Number(cell.dataset.col), Number(cell.dataset.row));
                 }}
                 onPointerUp={() => {
@@ -440,19 +476,21 @@ function Availability({ event, update }) {
                   drag.current = null;
                 }}
               >
-                <span />
+                <span className="text-gray-500">Event<br />time</span>
                 {event.dates.map((d) => (
                   <span key={d} className="pb-2">
-                    {label(d)}
+                    {label(d)}<small className="block text-gray-500">event date</small>
                   </span>
                 ))}
                 {slots.map((slot) => (
                   <div className="contents" key={slot}>
-                    <span className="relative -top-2 h-3 pr-2 text-right leading-3">
+                    <span className="h-6 pr-2 text-right leading-6 text-gray-500">
                       {slot % 4 === 0 ? timeLabel(slot) : ""}
                     </span>
                     {event.dates.map((d, col) => {
                       const key = `${d}:${slot}`;
+                      const converted = times[key]?.local;
+                      const cellLabel = converted ? `${converted.date} ${converted.time} ${converted.offset}` : "Unavailable: daylight-saving transition";
                       const count = event.people.filter((p) =>
                         p.slots.includes(key),
                       ).length;
@@ -465,13 +503,13 @@ function Availability({ event, update }) {
                           data-col={col}
                           data-row={slot}
                           data-grid={grid}
-                          disabled={!grid && !current}
-                          aria-label={`${label(d)} ${timeLabel(slot)}, ${grid ? `${count} available` : selected ? "available" : "unavailable"}`}
+                          disabled={!converted || (!grid && !current)}
+                          aria-label={`${cellLabel}, ${grid ? `${count} available` : selected ? "available" : "unavailable"}`}
                           aria-pressed={grid ? undefined : !!selected}
-                          title={`${label(d)} ${timeLabel(slot)}: ${count} of ${event.people.length} available`}
-                          className={`h-[12px] border-r border-b border-[#aaa] ${slot % 4 === 0 ? "border-t border-t-black" : ""} focus-visible:relative focus-visible:z-10 focus-visible:outline-2 focus-visible:outline-blue-600`}
+                          title={`${cellLabel}: ${count} of ${event.people.length} available`}
+                          className={`h-[24px] border-r border-b border-[#aaa] ${slot % 4 === 0 ? "border-t border-t-black" : ""} focus-visible:relative focus-visible:z-10 focus-visible:outline-2 focus-visible:outline-blue-600`}
                           style={{
-                            background: grid
+                            background: !converted ? "#ddd" : grid
                               ? count
                                 ? `rgb(${220 - Math.round((count / event.people.length) * 170)}, ${240 - Math.round((count / event.people.length) * 55)}, ${220 - Math.round((count / event.people.length) * 170)})`
                                 : "#eee"
@@ -479,8 +517,10 @@ function Availability({ event, update }) {
                                 ? "#88ee88"
                                 : "#f8dddd",
                           }}
-                          onFocus={() => grid && setHover(key)}
+                          onFocus={() => setHover(key)}
+                          onPointerEnter={() => setHover(key)}
                           onPointerDown={(e) => {
+                            setHover(key);
                             if (grid || !current) return;
                             e.preventDefault();
                             e.currentTarget.parentElement.parentElement.setPointerCapture(
@@ -506,7 +546,9 @@ function Availability({ event, update }) {
                               drag.current = null;
                             }
                           }}
-                        />
+                        >
+                          {converted ? <span className="local-slot">{converted.time}{(slot === event.start || converted.iso !== times[`${d}:${slot - 1}`]?.local?.iso) && <small>{converted.date}</small>}</span> : "DST — unavailable"}
+                        </button>
                       );
                     })}
                   </div>
