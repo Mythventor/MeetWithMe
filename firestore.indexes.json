@@ -1,0 +1,7 @@
+{
+  "indexes": [],
+  "fieldOverrides": [
+    {"collectionGroup": "events", "fieldPath": "allowedSlots", "indexes": []},
+    {"collectionGroup": "responses", "fieldPath": "slots", "indexes": []}
+  ]
+}

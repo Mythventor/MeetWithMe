@@ -1,7 +1,9 @@
+import SharedEvent from "./SharedEvent";
+import { createSharedEvent } from "./sharedStore";
+import { sharedId } from "./lib/sharedEvents";
 import Recommendations from "./Recommendations";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { localZone, zoneName, slotInstant, localTime } from "./timezones";
-
 
 const days = [
   "Sunday",
@@ -40,11 +42,18 @@ function readEvents() {
 }
 
 function ZoneSelect({ label, value, onChange }) {
-  return <label className="zone-select"><span>{label}</span>
-    <select value={value} onChange={e => onChange(e.target.value)}>
-      {[...new Set([value, ...zones])].map(z => <option key={z} value={z}>{zoneName(z)}</option>)}
-    </select>
-  </label>;
+  return (
+    <label className="zone-select">
+      <span>{label}</span>
+      <select value={value} onChange={(e) => onChange(e.target.value)}>
+        {[...new Set([value, ...zones])].map((z) => (
+          <option key={z} value={z}>
+            {zoneName(z)}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
 }
 
 function Calendar({ mode, selected, setSelected }) {
@@ -215,26 +224,38 @@ function CreateEvent({ onCreate }) {
   const [end, setEnd] = useState(68);
   const [zone, setZone] = useState(zones[0]);
   const [error, setError] = useState("");
+  const [creating, setCreating] = useState(false);
   return (
     <form
       className="mx-auto max-w-[900px] px-3 pb-12 pt-[30px]"
-      onSubmit={(e) => {
+      onSubmit={async (e) => {
         e.preventDefault();
         if (!name.trim()) return setError("Please enter an event name.");
         if (!selected.length)
           return setError("Please select at least one date.");
         if (end <= start)
           return setError("The end time must be later than the start time.");
-        onCreate({
-          id: crypto.randomUUID(),
-          name: name.trim(),
-          mode,
-          dates: selected.sort(),
-          start,
-          end,
-          zone,
-          people: [],
-        });
+        if (creating) return;
+        setCreating(true);
+        setError("");
+        try {
+          await onCreate({
+            id: crypto.randomUUID(),
+            name: name.trim(),
+            mode,
+            dates: selected.sort(),
+            start,
+            end,
+            zone,
+            people: [],
+          });
+        } catch (error) {
+          setError(
+            `Could not create event: ${error.message}. Check your connection and try again.`,
+          );
+        } finally {
+          setCreating(false);
+        }
       }}
     >
       <div className="text-center">
@@ -306,15 +327,28 @@ function CreateEvent({ onCreate }) {
               </label>
             </div>
             <div className="creation-zone">
-              <ZoneSelect label="Event time zone" value={zone} onChange={setZone} />
-              <p>Start with your location. Everyone can view these times in their own zone.</p>
-              <button type="button" className="zone-link" onClick={() => setZone(localZone)}>Use my time zone</button>
+              <ZoneSelect
+                label="Event time zone"
+                value={zone}
+                onChange={setZone}
+              />
+              <p>
+                Start with your location. Everyone can view these times in their
+                own zone.
+              </p>
+              <button
+                type="button"
+                className="zone-link"
+                onClick={() => setZone(localZone)}
+              >
+                Use my time zone
+              </button>
             </div>
           </div>
           <div className="mt-12 sm:mt-auto sm:pt-8">
             Ready?{" "}
-            <button className="native-button" type="submit">
-              Create Event
+            <button className="native-button" type="submit" disabled={creating}>
+              {creating ? "Creating…" : "Create Event"}
             </button>
           </div>
         </section>
@@ -326,32 +360,51 @@ function CreateEvent({ onCreate }) {
   );
 }
 
-function Availability({ event, update }) {
+function Availability({ event, update, sharedUid }) {
   const [person, setPerson] = useState("");
   const [active, setActive] = useState(null);
   const [hover, setHover] = useState(null);
   const [viewZone, setViewZone] = useState(() => {
-    try { const saved = localStorage.getItem("meetwithme-view-zone"); return zones.includes(saved) ? saved : localZone; } catch { return localZone; }
+    try {
+      const saved = localStorage.getItem("meetwithme-view-zone");
+      return zones.includes(saved) ? saved : localZone;
+    } catch {
+      return localZone;
+    }
   });
   const [week, setWeek] = useState(() => keyFor(new Date()));
   const changeZone = (zone) => {
     setViewZone(zone);
-    try { localStorage.setItem("meetwithme-view-zone", zone); } catch { /* Viewing still works without storage. */ }
+    try {
+      localStorage.setItem("meetwithme-view-zone", zone);
+    } catch {
+      /* Viewing still works without storage. */
+    }
   };
-  const times = useMemo(() => Object.fromEntries(event.dates.flatMap(d =>
-    Array.from({ length: event.end - event.start }, (_, i) => {
-      const slot = event.start + i;
-      const instant = slotInstant(event, d, slot, week);
-      return [`${d}:${slot}`, { instant, local: localTime(instant, viewZone) }];
-    })
-  )), [event, viewZone, week]);
-  const hasSkipped = Object.values(times).some(t => !t.instant);
+  const times = useMemo(
+    () =>
+      Object.fromEntries(
+        event.dates.flatMap((d) =>
+          Array.from({ length: event.end - event.start }, (_, i) => {
+            const slot = event.start + i;
+            const instant = slotInstant(event, d, slot, week);
+            return [
+              `${d}:${slot}`,
+              { instant, local: localTime(instant, viewZone) },
+            ];
+          }),
+        ),
+      ),
+    [event, viewZone, week],
+  );
+  const hasSkipped = Object.values(times).some((t) => !t.instant);
   const drag = useRef(null);
   const slots = Array.from(
     { length: event.end - event.start },
     (_, i) => event.start + i,
   );
-  const current = event.people.find((p) => p.id === active);
+  const editingId = sharedUid || active;
+  const current = event.people.find((p) => p.id === editingId);
   const label = (d) =>
     event.mode === "days"
       ? days[Number(d)].slice(0, 3)
@@ -374,28 +427,76 @@ function Availability({ event, update }) {
     update({
       ...event,
       people: event.people.map((p) =>
-        p.id === active ? { ...p, slots: [...next] } : p,
+        p.id === editingId ? { ...p, slots: [...next] } : p,
       ),
     });
   };
   return (
     <main className="mx-auto max-w-[1050px] px-4 pb-12 pt-6 text-center">
       <h1 className="text-2xl">{event.name}</h1>
-      <section className="creation-zone availability-zone" aria-label="Time zone">
-        <ZoneSelect label="Show availability in" value={viewZone} onChange={changeZone} />
+      <section
+        className="creation-zone availability-zone"
+        aria-label="Time zone"
+      >
+        <ZoneSelect
+          label="Show availability in"
+          value={viewZone}
+          onChange={changeZone}
+        />
         <p>View times in your zone. Your selections stay the same.</p>
-        <button type="button" className="zone-link" onClick={() => changeZone(localZone)}>Use my time zone</button>
-        {event.mode === "days" && <label className="week-reference">Reference week <input type="date" required value={week} onChange={e => { if (e.target.value) setWeek(e.target.value); }} /><span>Conversions use this week’s daylight-saving rules.</span></label>}
-        {hasSkipped && <p className="zone-warning" role="status">Times skipped or repeated by daylight saving are disabled.</p>}
+        <button
+          type="button"
+          className="zone-link"
+          onClick={() => changeZone(localZone)}
+        >
+          Use my time zone
+        </button>
+        {event.mode === "days" && (
+          <label className="week-reference">
+            Reference week{" "}
+            <input
+              type="date"
+              required
+              value={week}
+              onChange={(e) => {
+                if (e.target.value) setWeek(e.target.value);
+              }}
+            />
+            <span>Conversions use this week’s daylight-saving rules.</span>
+          </label>
+        )}
+        {hasSkipped && (
+          <p className="zone-warning" role="status">
+            Times skipped or repeated by daylight saving are disabled.
+          </p>
+        )}
       </section>
       <p className="mt-2 text-xs text-[#555]">
-        Responses are saved on this browser only.
+        {sharedUid
+          ? "Your editing identity stays in this browser. Clearing browser data or switching devices creates a new participant."
+          : "This is a local-only event. Create a new event to get a shareable link."}
       </p>
       <form
         className="my-5 flex flex-wrap items-center justify-center gap-2 text-sm"
         onSubmit={(e) => {
           e.preventDefault();
           if (!person.trim()) return;
+          if (sharedUid) {
+            const mine = event.people.find((p) => p.id === sharedUid);
+            update({
+              ...event,
+              people: [
+                ...event.people.filter((p) => p.id !== sharedUid),
+                {
+                  id: sharedUid,
+                  name: person.trim(),
+                  slots: mine?.slots || [],
+                },
+              ],
+            });
+            setPerson("");
+            return;
+          }
           const existing = event.people.find(
             (p) => p.name.toLowerCase() === person.trim().toLowerCase(),
           );
@@ -423,7 +524,13 @@ function Availability({ event, update }) {
             className="w-36"
           />
         </label>
-        <button className="native-button">Add / Sign In</button>
+        <button className="native-button">
+          {sharedUid
+            ? current
+              ? "Update my name"
+              : "Join event"
+            : "Add / Sign In"}
+        </button>
         {current && (
           <span>
             Editing: <b>{current.name}</b>
@@ -463,10 +570,15 @@ function Availability({ event, update }) {
                   drag.current = null;
                 }}
               >
-                <span className="text-gray-500">Event<br />time</span>
+                <span className="text-gray-500">
+                  Event
+                  <br />
+                  time
+                </span>
                 {event.dates.map((d) => (
                   <span key={d} className="pb-2">
-                    {label(d)}<small className="block text-gray-500">event date</small>
+                    {label(d)}
+                    <small className="block text-gray-500">event date</small>
                   </span>
                 ))}
                 {slots.map((slot) => (
@@ -477,7 +589,9 @@ function Availability({ event, update }) {
                     {event.dates.map((d, col) => {
                       const key = `${d}:${slot}`;
                       const converted = times[key]?.local;
-                      const cellLabel = converted ? `${converted.date} ${converted.time} ${converted.offset}` : "Unavailable: daylight-saving transition";
+                      const cellLabel = converted
+                        ? `${converted.date} ${converted.time} ${converted.offset}`
+                        : "Unavailable: daylight-saving transition";
                       const count = event.people.filter((p) =>
                         p.slots.includes(key),
                       ).length;
@@ -496,13 +610,15 @@ function Availability({ event, update }) {
                           title={`${cellLabel}: ${count} of ${event.people.length} available`}
                           className={`h-[24px] border-r border-b border-[#aaa] ${slot % 4 === 0 ? "border-t border-t-black" : ""} focus-visible:relative focus-visible:z-10 focus-visible:outline-2 focus-visible:outline-blue-600`}
                           style={{
-                            background: !converted ? "#ddd" : grid
-                              ? count
-                                ? `rgb(${220 - Math.round((count / event.people.length) * 170)}, ${240 - Math.round((count / event.people.length) * 55)}, ${220 - Math.round((count / event.people.length) * 170)})`
-                                : "#eee"
-                              : selected
-                                ? "#88ee88"
-                                : "#f8dddd",
+                            background: !converted
+                              ? "#ddd"
+                              : grid
+                                ? count
+                                  ? `rgb(${220 - Math.round((count / event.people.length) * 170)}, ${240 - Math.round((count / event.people.length) * 55)}, ${220 - Math.round((count / event.people.length) * 170)})`
+                                  : "#eee"
+                                : selected
+                                  ? "#88ee88"
+                                  : "#f8dddd",
                           }}
                           onFocus={() => setHover(key)}
                           onPointerEnter={() => setHover(key)}
@@ -534,7 +650,18 @@ function Availability({ event, update }) {
                             }
                           }}
                         >
-                          {converted ? <span className="local-slot">{converted.time}{(slot === event.start || converted.iso !== times[`${d}:${slot - 1}`]?.local?.iso) && <small>{converted.date}</small>}</span> : "DST — unavailable"}
+                          {converted ? (
+                            <span className="local-slot">
+                              {converted.time}
+                              {(slot === event.start ||
+                                converted.iso !==
+                                  times[`${d}:${slot - 1}`]?.local?.iso) && (
+                                <small>{converted.date}</small>
+                              )}
+                            </span>
+                          ) : (
+                            "DST — unavailable"
+                          )}
                         </button>
                       );
                     })}
@@ -568,13 +695,18 @@ function Availability({ event, update }) {
       <Recommendations event={event} />
       <div className="mt-5 text-sm">
         {event.people.length > 0 && (
-          <p className="mb-2">Participants — select a name to edit:</p>
+          <p className="mb-2">
+            {sharedUid
+              ? "Participants"
+              : "Participants — select a name to edit:"}
+          </p>
         )}
         <div className="flex flex-wrap justify-center gap-2">
           {event.people.map((p) => (
             <button
               key={p.id}
-              className={`native-button ${p.id === active ? "font-bold" : ""}`}
+              disabled={!!sharedUid && p.id !== sharedUid}
+              className={`native-button ${p.id === editingId ? "font-bold" : ""}`}
               onClick={() => setActive(p.id)}
             >
               {p.name}
@@ -596,6 +728,7 @@ export default function App() {
     window.addEventListener("hashchange", change);
     return () => window.removeEventListener("hashchange", change);
   }, []);
+  const remoteId = sharedId(id);
   const event = events.find((e) => e.id === id);
   const save = (next) => {
     setEvents(next);
@@ -638,8 +771,9 @@ export default function App() {
             </p>
             <p className="mt-4">
               This is an independent recreation inspired by When2meet. Events
-              and responses are stored in this browser. Live sharing across
-              devices is not connected yet.
+              can be shared with a link. Shared responses update live. Each
+              browser can edit its own response; anyone with the link can view
+              the event.
             </p>
             <button
               className="native-button mt-5"
@@ -648,6 +782,12 @@ export default function App() {
               Plan an event
             </button>
           </section>
+        ) : remoteId !== null ? (
+          <SharedEvent
+            key={remoteId}
+            id={remoteId}
+            Availability={Availability}
+          />
         ) : event ? (
           <Availability
             key={event.id}
@@ -659,9 +799,13 @@ export default function App() {
         ) : (
           <>
             <CreateEvent
-              onCreate={(e) => {
-                save([...events, e]);
-                location.hash = e.id;
+              onCreate={async (e) => {
+                const remote = await createSharedEvent(e);
+                save([
+                  ...events,
+                  { id: `event/${remote}`, name: e.name, shared: true },
+                ]);
+                location.hash = `event/${remote}`;
               }}
             />
             {events.length > 0 && (

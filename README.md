@@ -76,3 +76,44 @@ occurrences of a repeated hour. Responses still use browser-local storage.
 Time-zone checks: `node --test src/timezones.test.js`.
 Browser regression (with the dev server running): `npx playwright test`.
 Install the test browser once with `npx playwright install chromium`.
+
+## Shared events
+
+New events are saved to Cloud Firestore and use `#event/<random-id>` links. Use
+**Copy link** to share the production URL. Anyone with the link can read the
+names and availability. Participants join without an account form; Firebase
+Anonymous Authentication assigns a persistent browser identity. Only that
+identity can edit its response. Clearing browser data, private browsing, or
+switching devices creates a new identity; there is no recovery or name-based
+claiming of someone else's response.
+
+Existing local events are preserved and stay local. New events require an
+internet connection. Responses update live and are saved after a short debounce;
+wait for the saving message to clear before closing the page. Separate participants
+have separate documents so their concurrent writes do not overwrite each other.
+
+The public Firebase web configuration is in `src/firebase.js`. No admin/service
+account key belongs in client code. Rules deny event enumeration, freeze event
+metadata after creation, and validate response owners and allowed time slots.
+Firestore is in `us-central1` and Anonymous sign-in must be enabled in Firebase.
+
+### Backend checks and deployment
+
+```sh
+npm test
+npm run lint
+npm run build
+# Requires Firebase CLI and Java 21+; runs against a demo emulator, not live data:
+npm run test:rules
+# Deploy rules/indexes with an authorized local Firebase account:
+firebase deploy --only firestore --project meetwithme-20260930
+```
+
+GitHub Actions runs app tests and Firestore emulator tests before deploying Hosting.
+Its existing Hosting credential does not deploy Firestore rules; deploy rule changes
+explicitly using the command above. `tests/live-sharing.mjs` is a manual live smoke
+test that creates a test event; it cleans up its responses and anonymous identities,
+but leaves the immutable event for admin cleanup. Do not run it in routine CI.
+
+Firebase SDK app internals are pinned together in npm overrides to avoid duplicate
+app registries. The gRPC override includes the upstream certificate-validation fix.

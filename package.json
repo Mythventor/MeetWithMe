@@ -9,14 +9,17 @@
     "deploy": "firebase deploy --only hosting",
     "lint": "oxlint",
     "preview": "vite preview",
-    "test": "node --test src/lib/*.test.js src/timezones.test.js"
+    "test": "node --test src/lib/*.test.js src/timezones.test.js",
+    "test:rules": "firebase emulators:exec --only firestore --project demo-meetwithme \"node --test tests/firestore.test.js\""
   },
   "dependencies": {
     "@js-temporal/polyfill": "^0.5.1",
+    "firebase": "^12.19.0",
     "react": "^19.2.8",
     "react-dom": "^19.2.8"
   },
   "devDependencies": {
+    "@firebase/rules-unit-testing": "^5.0.2",
     "@playwright/test": "^1.63.0",
     "@tailwindcss/vite": "^4.3.3",
     "@types/react": "^19.2.18",
@@ -25,5 +28,10 @@
     "oxlint": "^1.81.0",
     "tailwindcss": "^4.3.3",
     "vite": "^8.3.0"
+  },
+  "overrides": {
+    "@firebase/app": "0.16.2",
+    "@firebase/app-compat": "0.5.18",
+    "@grpc/grpc-js": "^1.13.6"
   }
 }

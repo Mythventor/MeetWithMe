@@ -1,0 +1,41 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() { return request.auth != null; }
+    match /events/{eventId} {
+      // Knowing the random link allows reading one event, not enumerating events.
+      allow get: if signedIn();
+      allow list: if false;
+      allow create: if signedIn()
+        && request.resource.data.keys().hasOnly(['name','mode','dates','start','end','zone','owner','allowedSlots','createdAt'])
+        && request.resource.data.owner == request.auth.uid
+        && request.resource.data.name is string
+        && request.resource.data.name.size() > 0 && request.resource.data.name.size() <= 120
+        && request.resource.data.mode in ['dates','days']
+        && request.resource.data.dates is list
+        && request.resource.data.dates.size() > 0 && request.resource.data.dates.size() <= 60
+        && request.resource.data.start is int && request.resource.data.end is int
+        && request.resource.data.start >= 0 && request.resource.data.end <= 96
+        && request.resource.data.end > request.resource.data.start
+        && request.resource.data.zone is string && request.resource.data.zone.size() <= 100
+        && request.resource.data.allowedSlots is list && request.resource.data.allowedSlots.size() <= 5760
+        && request.resource.data.createdAt == request.time;
+      // Event details are immutable; participants cannot alter the poll.
+      allow update, delete: if false;
+      match /responses/{uid} {
+        function event() { return get(/databases/$(database)/documents/events/$(eventId)).data; }
+        allow read: if signedIn() && exists(/databases/$(database)/documents/events/$(eventId));
+        allow create, update: if signedIn() && request.auth.uid == uid
+          && request.resource.data.keys().hasOnly(['name','slots','updatedAt'])
+          && request.resource.data.name is string
+          && request.resource.data.name.matches('.*[^ ].*')
+          && request.resource.data.name.size() > 0 && request.resource.data.name.size() <= 60
+          && request.resource.data.slots is list && request.resource.data.slots.size() <= 5760
+          && request.resource.data.slots.hasOnly(event().allowedSlots)
+          && request.resource.data.slots.size() == request.resource.data.slots.toSet().size()
+          && request.resource.data.updatedAt == request.time;
+        allow delete: if signedIn() && request.auth.uid == uid;
+      }
+    }
+  }
+}
