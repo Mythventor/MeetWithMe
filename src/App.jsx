@@ -363,6 +363,8 @@ function CreateEvent({ onCreate }) {
 function Availability({ event, update, sharedUid }) {
   const [person, setPerson] = useState("");
   const [active, setActive] = useState(null);
+  const [nameReminder, setNameReminder] = useState(false);
+  const nameInput = useRef(null);
   const [hover, setHover] = useState(null);
   const [viewZone, setViewZone] = useState(() => {
     try {
@@ -480,7 +482,12 @@ function Availability({ event, update, sharedUid }) {
         className="my-5 flex flex-wrap items-center justify-center gap-2 text-sm"
         onSubmit={(e) => {
           e.preventDefault();
-          if (!person.trim()) return;
+          if (!person.trim()) {
+            setNameReminder(true);
+            nameInput.current?.focus();
+            return;
+          }
+          setNameReminder(false);
           if (sharedUid) {
             const mine = event.people.find((p) => p.id === sharedUid);
             update({
@@ -517,6 +524,8 @@ function Availability({ event, update, sharedUid }) {
           Your name:{" "}
           <input
             aria-label="Your name"
+            ref={nameInput}
+            aria-describedby={nameReminder && !current ? "name-reminder" : undefined}
             maxLength={60}
             required
             value={person}
@@ -548,6 +557,23 @@ function Availability({ event, update, sharedUid }) {
                   ? "Click and drag to mark the times you are available."
                   : "Enter your name above to mark your availability."}
             </p>
+            {!grid && nameReminder && !current && (
+              <div
+                id="name-reminder"
+                role="alert"
+                className="mb-3 rounded border border-amber-400 bg-amber-50 p-3 text-sm text-amber-900"
+              >
+                Enter your name and click {sharedUid ? "Join event" : "Add / Sign In"} before selecting times.
+                {" "}
+                <button
+                  type="button"
+                  className="font-semibold underline"
+                  onClick={() => nameInput.current?.focus()}
+                >
+                  Add your name
+                </button>
+              </div>
+            )}
             <div className="overflow-x-auto pb-3">
               <div
                 className="grid min-w-max touch-none select-none text-[11px]"
@@ -604,7 +630,7 @@ function Availability({ event, update, sharedUid }) {
                           data-col={col}
                           data-row={slot}
                           data-grid={grid}
-                          disabled={!converted || (!grid && !current)}
+                          disabled={!converted}
                           aria-label={`${cellLabel}, ${grid ? `${count} available` : selected ? "available" : "unavailable"}`}
                           aria-pressed={grid ? undefined : !!selected}
                           title={`${cellLabel}: ${count} of ${event.people.length} available`}
@@ -624,7 +650,12 @@ function Availability({ event, update, sharedUid }) {
                           onPointerEnter={() => setHover(key)}
                           onPointerDown={(e) => {
                             setHover(key);
-                            if (grid || !current) return;
+                            if (grid) return;
+                            if (!current) {
+                              e.preventDefault();
+                              setNameReminder(true);
+                              return;
+                            }
                             e.preventDefault();
                             e.currentTarget.parentElement.parentElement.setPointerCapture(
                               e.pointerId,
@@ -638,6 +669,10 @@ function Availability({ event, update, sharedUid }) {
                             paint(col, slot);
                           }}
                           onClick={(e) => {
+                            if (!grid && !current) {
+                              setNameReminder(true);
+                              return;
+                            }
                             if (!grid && current && e.detail === 0) {
                               drag.current = {
                                 c: col,

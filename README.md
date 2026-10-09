@@ -1,6 +1,6 @@
 # MeetWithMe
 
-A local React + Tailwind CSS recreation of When2meet's compact scheduling interface, without advertisements.
+A React + Tailwind CSS recreation of When2meet's compact scheduling interface, without advertisements.
 
 ## Run locally
 
@@ -15,11 +15,11 @@ Open the local URL printed by Vite.
 
 - Select specific dates or days of the week with a click, drag, or keyboard.
 - Choose a time range and event time zone.
-- Create events and add local participants.
+- Create shared events and invite participants with a link.
 - Drag across 15-minute availability cells and compare participants in a group heatmap.
-- Reopen saved events from the home page. Events and responses persist in this browser's local storage.
+- Reopen events from the home page. Shared events and responses persist in Firestore.
 
-There is no account system, server synchronization, or shared event service. Event URLs work only in the browser where the event was saved. All times use the event's selected time zone.
+No account form is required. Anonymous browser identities protect each participant’s response. Older local-only events remain in browser storage. All times use the event’s selected time zone, with local time-zone views.
 
 ## Checks
 
@@ -30,7 +30,7 @@ npm run build
 
 ## Existing Firebase hosting
 
-The repository retains its Firebase Hosting configuration for project `meetwithme-20260930` (MeetWithMe). To publish explicitly, sign in with the Firebase CLI and run `npm run deploy`; this builds before uploading `dist`. Local development does not require Firebase.
+The repository retains its Firebase Hosting configuration for project `meetwithme-20260930` (MeetWithMe). To publish explicitly, sign in with the Firebase CLI and run `npm run deploy`; this builds before uploading `dist`. Shared events use the configured Firebase backend during local development too.
 
 ## Automatic deployment with GitHub Actions
 
